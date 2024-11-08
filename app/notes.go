@@ -48,6 +48,7 @@ func (nh *notesHandler) initialize(ctx context.Context) error {
 			return err
 		}
 	}
+	log.Println("...notes initialized")
 	return nil
 }
 
@@ -82,6 +83,7 @@ func (nh *notesHandler) getNote(ctx context.Context, id int) (note, error) {
 	if err != nil {
 		return note{}, err
 	}
+	defer rows.Close()
 	if !rows.Next() {
 		return note{}, errors.New("not found")
 	}
@@ -97,10 +99,10 @@ func (nh *notesHandler) deleteNote(ctx context.Context, id int) error {
 	return err
 }
 
-func Notes() http.Handler {
+func Notes(ctx context.Context) http.Handler {
 	db := must(sql.Open("sqlite", "./notes.db"))
 	nh := &notesHandler{db}
-	if err := nh.initialize(context.Background()); err != nil {
+	if err := nh.initialize(ctx); err != nil {
 		log.Fatalf("Cannot initialize notes: %v", err)
 	}
 
