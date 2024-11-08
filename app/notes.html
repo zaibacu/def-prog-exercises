@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="/notes/notes.css" />
+  </head>
+  <body>
+    <div class="center">
+      <div id="content">
+        <div class="grid-container">
+          {{ range . }}
+          <blockquote class="note used">
+            <form action="/notes/delete" method="post" class="close">
+              <input type="hidden" id="id" name="id" value="{{.Id}}" />
+              <input type="submit" value="✗" />
+            </form>
+            <b class="title">{{.Title}}</b>
+            <p class="content">{{.Content}}</p>
+          </blockquote>
+          {{ end }}
+        </div>
+        <br />
+        <div class="note new">
+          <form action="/notes/add" method="post">
+            <label for="title">Title:</label><br />
+            <input
+              style="height: 2em"
+              type="text"
+              id="title"
+              name="title"
+            /><br />
+            <label for="content">Content:</label>
+            <textarea id="content" name="content" rows="5" cols="33">
+            </textarea>
+            <br />
+            <!-- TODO(empijei): this button is an eyesore, fix it. -->
+            <input type="submit" value="Add note" />
+          </form>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
