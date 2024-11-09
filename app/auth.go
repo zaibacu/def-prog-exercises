@@ -169,6 +169,7 @@ func Auth(ctx context.Context) *AuthHandler {
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			io.WriteString(w, err.Error())
+			return
 		}
 		io.Copy(w, f)
 	})
@@ -177,6 +178,7 @@ func Auth(ctx context.Context) *AuthHandler {
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			io.WriteString(w, err.Error())
+			return
 		}
 		io.Copy(w, f)
 	})
@@ -186,6 +188,7 @@ func Auth(ctx context.Context) *AuthHandler {
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			io.WriteString(w, err.Error())
+			return
 		}
 		defer rows.Close()
 		if !rows.Next() {
@@ -193,11 +196,13 @@ func Auth(ctx context.Context) *AuthHandler {
 			io.WriteString(w, `<html>
 Invalid creadentials. <a href="/auth">Go back</a>
 	</html>`)
+			return
 		}
 		var id int
 		if err := rows.Scan(&id); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			io.WriteString(w, err.Error())
+			return
 		}
 		ah.login(w, id)
 		http.Redirect(w, r, "/notes/", http.StatusFound)

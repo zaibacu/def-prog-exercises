@@ -38,7 +38,7 @@ func scanNote(rows *sql.Rows) (nt note, err error) {
 }
 
 func (nh *notesHandler) initialize(ctx context.Context) error {
-	must(nh.db.Exec(`CREATE TABLE IF NOT EXISTS notes(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT)`))
+	must(nh.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS notes(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT)`))
 	nts, err := nh.getNotes(ctx)
 	if err != nil {
 		return err
@@ -125,6 +125,7 @@ func Notes(ctx context.Context, auth *AuthHandler) http.Handler {
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			io.WriteString(w, err.Error())
+			return
 		}
 		// Write the template with the notes
 		if err = notesTpl.Execute(w, struct {
@@ -133,6 +134,7 @@ func Notes(ctx context.Context, auth *AuthHandler) http.Handler {
 		}{notes, u}); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			io.WriteString(w, err.Error())
+			return
 		}
 	})
 	n.HandleFunc("/notes/notes.css", func(w http.ResponseWriter, r *http.Request) {
