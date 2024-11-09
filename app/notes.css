@@ -1,16 +1,53 @@
 :root {
   --note-color: #eae672;
-  --primary-color: #faf573; 
+  --primary-color: #faf573;
 }
 html,
 body {
   font-family: sans-serif;
+  margin: 0;
+  padding: 0;
 }
 .center {
-  margin: 2em;
   display: flex;
   align-items: start;
   justify-content: center;
+  min-width: 100vw;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+/**********************
+* HEADERS and FOOTERS *
+***********************/
+header {
+  position: fixed;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+}
+#userdata {
+  margin: 0.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#userdata > a {
+  padding-top: 4px;
+}
+footer {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 5pt;
 }
 
 /***************

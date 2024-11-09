@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"io"
 	"log"
 	"net/http"
 
@@ -13,15 +12,20 @@ import (
 
 func main() {
 	ctx := context.Background()
-	sm := http.NewServeMux()
-	sm.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		io.WriteString(w, r.URL.Path+` doesn't exist on this server`)
-	}))
 	auth := app.Auth(ctx)
+
+	sm := http.NewServeMux()
+	sm.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if auth.IsLogged(r) {
+			http.Redirect(w, r, "/notes/", http.StatusFound)
+		} else {
+			http.Redirect(w, r, "/auth/", http.StatusFound)
+		}
+	})
 	sm.HandleFunc("/echo", app.Echo)
 	sm.Handle("/auth/", auth)
-	sm.Handle("/notes/", app.Notes(ctx))
+	sm.Handle("/notes/", app.Notes(ctx, auth))
+
 	addr := "localhost:8080"
 	s := &http.Server{
 		Addr:    addr,
@@ -30,7 +34,3 @@ func main() {
 	log.Println("Ready to accept connections on " + addr)
 	log.Fatal(s.ListenAndServe())
 }
-
-// TODO authenticated section
-// TODO note deletion
-// TODO styles

@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"embed"
 )
@@ -17,19 +19,34 @@ import (
 var fs embed.FS
 
 var defaultUsers = []user{
-	{name: "admin", password: "admin", privileges: "read|write|delete"},
-	{name: "reader", password: "reader", privileges: "read"},
-	{name: "editor", password: "editor", privileges: "read|write"},
+	{Name: "admin", password: "admin", Privileges: "|read|write|delete|"},
+	{Name: "reader", password: "reader", Privileges: "|read|"},
+	{Name: "editor", password: "editor", Privileges: "|read|write|"},
 }
 
 type user struct {
-	id                         int
-	name, password, privileges string
+	Id                         int
+	Name, password, Privileges string
+}
+
+func (u user) Can(priv string) bool {
+	return strings.Contains(u.Privileges, "|"+priv+"|")
 }
 
 type AuthHandler struct {
 	db *sql.DB
 	sm *http.ServeMux
+}
+
+func (ah *AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ah.sm.ServeHTTP(w, r)
+}
+func (ah *AuthHandler) IsLogged(r *http.Request) bool {
+	u, err := ah.getUser(r)
+	if err != nil {
+		return false
+	}
+	return u.Name != ""
 }
 
 func (ah *AuthHandler) getUserCount(ctx context.Context) (int, error) {
@@ -60,7 +77,7 @@ func (ah *AuthHandler) createDefault(ctx context.Context) error {
 	}
 	log.Println("Default users not found, initializing...")
 	for _, u := range defaultUsers {
-		_, err := ah.db.ExecContext(ctx, `INSERT INTO users(name, password, privileges) VALUES('`+u.name+`','`+u.password+`','`+u.privileges+`')`)
+		_, err := ah.db.ExecContext(ctx, `INSERT INTO users(name, password, privileges) VALUES('`+u.Name+`','`+u.password+`','`+u.Privileges+`')`)
 		if err != nil {
 			return err
 		}
@@ -81,12 +98,62 @@ func (ah *AuthHandler) initialize(ctx context.Context) error {
 
 	return nil
 }
-func (ah *AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ah.sm.ServeHTTP(w, r)
+
+func (ah *AuthHandler) hasPrivilege(r *http.Request, priv string) bool {
+	u, err := ah.getUser(r)
+	if err != nil {
+		return false
+	}
+	return u.Can(priv)
 }
-func (ah *AuthHandler) Protect(h http.Handler) http.Handler {
-	// TODO
-	return h
+
+func (ah *AuthHandler) getUser(r *http.Request) (*user, error) {
+	c, err := r.Cookie("userid")
+	if err != nil {
+		return nil, err
+	}
+	// THIS IS OF COURSE BROKEN AND A TERRIBLE AUTH MECHANISM
+	// but this is a toy application and there's not benefit in
+	// actually create a random token and connect that to the id
+	// via DB. This application is already complicated enough as
+	// is so we are taking a shortcut here.
+	//
+	// BUT PLEASE, PLEASE, PLEASE never rely on client-provided
+	// data to perform auth checks unless it's signed and you validated
+	// the sgnature.
+	rows, err := ah.db.QueryContext(r.Context(), `SELECT * FROM users WHERE id=`+c.Value)
+	if err != nil || !rows.Next() {
+		return nil, err
+	}
+	defer rows.Close()
+	var u user
+	if err := rows.Scan(&(u.Id), &(u.Name), &(u.password), &(u.Privileges)); err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+func (ah *AuthHandler) logout(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:    "userid",
+		Path:    "/",
+		Expires: time.Now().Add(-24 * time.Hour),
+	})
+}
+func (ah *AuthHandler) login(w http.ResponseWriter, id int) {
+	// THIS IS OF COURSE BROKEN AND A TERRIBLE AUTH MECHANISM
+	// but this is a toy application and there's not benefit in
+	// actually create a random token and connect that to the id
+	// via DB. This application is already complicated enough as
+	// is so we are taking a shortcut here.
+	//
+	// BUT PLEASE, PLEASE, PLEASE never rely on client-provided
+	// data to perform auth checks unless it's signed and you validated
+	// the sgnature.
+	http.SetCookie(w, &http.Cookie{
+		Name:  "userid",
+		Value: strconv.Itoa(id),
+		Path:  "/",
+	})
 }
 
 func Auth(ctx context.Context) *AuthHandler {
@@ -113,7 +180,7 @@ func Auth(ctx context.Context) *AuthHandler {
 		}
 		io.Copy(w, f)
 	})
-	sm.HandleFunc("POST /auth", func(w http.ResponseWriter, r *http.Request) {
+	sm.HandleFunc("POST /auth/", func(w http.ResponseWriter, r *http.Request) {
 		u, pw := r.FormValue("name"), r.FormValue("password")
 		rows, err := db.QueryContext(r.Context(), `SELECT id FROM users WHERE name='`+u+`' and password='`+pw+`'`)
 		if err != nil {
@@ -132,16 +199,12 @@ Invalid creadentials. <a href="/auth">Go back</a>
 			w.WriteHeader(http.StatusInternalServerError)
 			io.WriteString(w, err.Error())
 		}
-		http.SetCookie(w, &http.Cookie{
-			Name: "userid",
-			// THIS IS OF COURSE BROKEN AND A TERRIBLE AUTH MECHANISM
-			// but this is a toy application and there's not benefit in
-			// actually create a random token and connect that to the id
-			// via DB. This application is already complicated enough as
-			// is so we are taking a shortcut here.
-			Value: strconv.Itoa(id),
-		})
-		http.Redirect(w, r, "/notes", http.StatusTemporaryRedirect)
+		ah.login(w, id)
+		http.Redirect(w, r, "/notes/", http.StatusFound)
+	})
+	sm.HandleFunc("GET /auth/logout/", func(w http.ResponseWriter, r *http.Request) {
+		ah.logout(w)
+		http.Redirect(w, r, "/auth/", http.StatusFound)
 	})
 	return ah
 }

@@ -1,33 +1,87 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <link rel="stylesheet" href="/auth/auth.css" />
-  </head>
-  <body>
-    <div class="center">
-      <div id="content">
-        <div>
-          <form action="/auth" method="post">
-            <label for="name">Name:</label><br />
-            <input
-              type="text"
-              id="name"
-              name="name"
-              placeholder="Your username"
-            /><br />
-            <label for="password">Password:</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              placeholder="Password"
-            /><br />
-            <br />
-            <input type="submit" class="adder" value="Login" />
-            <br />
-          </form>
-        </div>
+
+<head>
+  <style>
+    html,
+    body {
+      font-family: sans-serif;
+      font-size: 15pt;
+      margin: 0;
+      padding: 0;
+    }
+
+    .center {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 100vw;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+    }
+
+    main {
+      padding: 2em;
+      border-radius: 1em;
+      border: 1px solid rgb(181, 181, 181);
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      border-radius: 5px;
+      padding: 0.5em;
+      box-shadow: 1px 2px 2px rgba(0, 0, 0, 0.2);
+    }
+
+    input[type="submit"] {
+      cursor: pointer;
+      border-radius: 20px;
+      padding: 10px;
+      font-size: 15pt;
+      box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    #btn-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    footer {
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 5pt;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="center">
+    <main>
+      <div>
+        <form action="/auth/" method="post">
+          <label for="name">Name:</label><br />
+          <input type="text" id="name" name="name" placeholder="Username" /><br /><br />
+          <label for="password">Password:</label><br />
+          <input type="password" id="password" name="password" placeholder="Password" /><br />
+          <br />
+          <div id="btn-container">
+            <input type="submit" value="Login" />
+          </div>
+        </form>
       </div>
-    </div>
-  </body>
+    </main>
+    <footer>
+      <p>
+        Defensive programming workshop test application.<br />
+        This is unsafe, please never expose it on the internet.
+      </p>
+    </footer>
+  </div>
+</body>
+
 </html>

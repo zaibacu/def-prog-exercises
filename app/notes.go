@@ -28,7 +28,8 @@ type note struct {
 }
 
 type notesHandler struct {
-	db *sql.DB
+	db   *sql.DB
+	auth *AuthHandler
 }
 
 func scanNote(rows *sql.Rows) (nt note, err error) {
@@ -47,8 +48,8 @@ func (nh *notesHandler) initialize(ctx context.Context) error {
 		if err := nh.putNote(ctx, note{Title: "Salutations", Content: "Hello, World!"}); err != nil {
 			return err
 		}
+		log.Println("...notes initialized")
 	}
-	log.Println("...notes initialized")
 	return nil
 }
 
@@ -99,9 +100,9 @@ func (nh *notesHandler) deleteNote(ctx context.Context, id int) error {
 	return err
 }
 
-func Notes(ctx context.Context) http.Handler {
+func Notes(ctx context.Context, auth *AuthHandler) http.Handler {
 	db := must(sql.Open("sqlite", "./notes.db"))
-	nh := &notesHandler{db}
+	nh := &notesHandler{db, auth}
 	if err := nh.initialize(ctx); err != nil {
 		log.Fatalf("Cannot initialize notes: %v", err)
 	}
@@ -110,14 +111,26 @@ func Notes(ctx context.Context) http.Handler {
 
 	// Home for the note page
 	n.HandleFunc("/notes/", func(w http.ResponseWriter, r *http.Request) {
+		if !nh.auth.hasPrivilege(r, "read") {
+			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+			return
+		}
 		notes, err := nh.getNotes(r.Context())
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			io.WriteString(w, err.Error())
 			return
 		}
+		u, err := auth.getUser(r)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			io.WriteString(w, err.Error())
+		}
 		// Write the template with the notes
-		if err = notesTpl.Execute(w, notes); err != nil {
+		if err = notesTpl.Execute(w, struct {
+			Notes []note
+			User  *user
+		}{notes, u}); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			io.WriteString(w, err.Error())
 		}
@@ -129,12 +142,21 @@ func Notes(ctx context.Context) http.Handler {
 
 	// Add notes
 	n.HandleFunc("/notes/add", func(w http.ResponseWriter, r *http.Request) {
+		if !nh.auth.hasPrivilege(r, "write") {
+			w.WriteHeader(http.StatusUnauthorized)
+			io.WriteString(w, `<html>
+				You are not authorized to add notes.
+				<a href="/notes">Go back</a>
+			</html>`)
+			return
+		}
 		title := r.FormValue("title")
 		content := r.FormValue("content")
 		if title == "" || content == "" {
 			io.WriteString(w, `<html>
-	The title and content cannot be empty. <a href="/notes">Go back</a>
-	</html>`)
+				The title and content cannot be empty.
+				<a href="/notes">Go back</a>
+			</html>`)
 			return
 		}
 		if err := nh.putNote(r.Context(), note{
@@ -147,8 +169,16 @@ func Notes(ctx context.Context) http.Handler {
 		}
 		http.Redirect(w, r, "/notes", http.StatusTemporaryRedirect)
 	})
+
 	// Delete notes
 	n.HandleFunc("/notes/delete", func(w http.ResponseWriter, r *http.Request) {
+		if !nh.auth.hasPrivilege(r, "delete") {
+			w.WriteHeader(http.StatusUnauthorized)
+			io.WriteString(w, `<html>
+				You are not authorized to delete notes.
+				<a href="/notes">Go back</a>
+			</html>`)
+		}
 		id, err := strconv.Atoi(r.FormValue("id"))
 		if err != nil {
 			fmt.Fprintf(w, `<html>
