@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -77,22 +76,6 @@ func (nh *notesHandler) getNotes(ctx context.Context) ([]note, error) {
 func (nh *notesHandler) putNote(ctx context.Context, nt note) error {
 	_, err := nh.db.ExecContext(ctx, `INSERT INTO notes(title, content) VALUES('`+nt.Title+`', '`+nt.Content+`')`)
 	return err
-}
-
-func (nh *notesHandler) getNote(ctx context.Context, id int) (note, error) {
-	rows, err := nh.db.QueryContext(ctx, `SELECT * FROM notes WHERE id = `+strconv.Itoa(id))
-	if err != nil {
-		return note{}, err
-	}
-	defer rows.Close()
-	if !rows.Next() {
-		return note{}, errors.New("not found")
-	}
-	nt, err := scanNote(rows)
-	if err != nil {
-		return nt, err
-	}
-	return nt, rows.Err()
 }
 
 func (nh *notesHandler) deleteNote(ctx context.Context, id int) error {
