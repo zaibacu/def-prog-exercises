@@ -3,7 +3,9 @@ package safesql
 import (
 	"context"
 	"database/sql"
+	"errors"
 
+	authentification "github.com/empijei/def-prog-exercises/auth"
 	"github.com/empijei/def-prog-exercises/safesql/internal/raw"
 )
 
@@ -35,12 +37,23 @@ func Open(driverName string, dataSourceName string) (*DB, error) {
 }
 
 func (db *DB) QueryContext(ctx context.Context, query TrustedSQL, args ...any) (*Rows, error) {
+	authentification.Must(ctx)
+	_, ok := authentification.Check(ctx, "read")
+	if !ok {
+		return nil, errors.New("Not enough privileges")
+	}
 	r, err := db.db.QueryContext(ctx, query.s, args...)
 
 	return r, err
 }
 
 func (db *DB) ExecContext(ctx context.Context, query TrustedSQL, args ...any) (Result, error) {
+	authentification.Must(ctx)
+
+	_, ok := authentification.Check(ctx, "write")
+	if !ok {
+		return nil, errors.New("Not enough privileges")
+	}
 	r, err := db.db.ExecContext(ctx, query.s, args...)
 
 	return r, err

@@ -11,6 +11,7 @@ import (
 
 	_ "embed"
 
+	authentification "github.com/empijei/def-prog-exercises/auth"
 	sql "github.com/empijei/def-prog-exercises/safesql"
 	conversions "github.com/empijei/def-prog-exercises/safesql/legacyconversions"
 )
@@ -38,7 +39,12 @@ func scanNote(rows *sql.Rows) (nt note, err error) {
 	return nt, err
 }
 
+func (ah *notesHandler) withSuperUser(ctx context.Context) context.Context {
+	return authentification.Grant(ctx, "write", "read")
+}
+
 func (nh *notesHandler) initialize(ctx context.Context) error {
+	ctx = nh.withSuperUser(ctx)
 	must(nh.db.ExecContext(ctx, conversions.RiskilyAssumeTrustedSQL(`CREATE TABLE IF NOT EXISTS notes(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT)`)))
 	nts, err := nh.getNotes(ctx)
 	if err != nil {
@@ -88,6 +94,7 @@ func (nh *notesHandler) deleteNote(ctx context.Context, id int) error {
 func Notes(ctx context.Context, auth *AuthHandler) http.Handler {
 	db := must(sql.Open("sqlite", "./notes.db"))
 	nh := &notesHandler{db, auth}
+
 	if err := nh.initialize(ctx); err != nil {
 		log.Fatalf("Cannot initialize notes: %v", err)
 	}
@@ -96,7 +103,8 @@ func Notes(ctx context.Context, auth *AuthHandler) http.Handler {
 
 	// Home for the note page
 	n.HandleFunc("/notes/", func(w http.ResponseWriter, r *http.Request) {
-		if !nh.auth.hasPrivilege(r, "read") {
+		_, ok := authentification.Check(ctx, "read")
+		if !ok {
 			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 			return
 		}
@@ -129,7 +137,8 @@ func Notes(ctx context.Context, auth *AuthHandler) http.Handler {
 
 	// Add notes
 	n.HandleFunc("/notes/add", func(w http.ResponseWriter, r *http.Request) {
-		if !nh.auth.hasPrivilege(r, "write") {
+		_, ok := authentification.Check(ctx, "write")
+		if !ok {
 			w.WriteHeader(http.StatusUnauthorized)
 			io.WriteString(w, `<html>
 				You are not authorized to add notes.
@@ -159,7 +168,8 @@ func Notes(ctx context.Context, auth *AuthHandler) http.Handler {
 
 	// Delete notes
 	n.HandleFunc("/notes/delete", func(w http.ResponseWriter, r *http.Request) {
-		if !nh.auth.hasPrivilege(r, "delete") {
+		_, ok := authentification.Check(ctx, "delete")
+		if !ok {
 			w.WriteHeader(http.StatusUnauthorized)
 			io.WriteString(w, `<html>
 				You are not authorized to delete notes.

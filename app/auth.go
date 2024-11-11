@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	authentification "github.com/empijei/def-prog-exercises/auth"
 	sql "github.com/empijei/def-prog-exercises/safesql"
 	conversions "github.com/empijei/def-prog-exercises/safesql/legacyconversions"
 
@@ -52,7 +53,6 @@ func (ah *AuthHandler) IsLogged(r *http.Request) bool {
 }
 
 func (ah *AuthHandler) getUserCount(ctx context.Context) (int, error) {
-
 	rows, err := ah.db.QueryContext(ctx, conversions.RiskilyAssumeTrustedSQL(`SELECT COUNT(*) FROM users`))
 	if err != nil {
 		return 0, err
@@ -89,6 +89,10 @@ func (ah *AuthHandler) createDefault(ctx context.Context) error {
 	return nil
 }
 
+func (ah *AuthHandler) withSuperUser(ctx context.Context) context.Context {
+	return authentification.Grant(ctx, "write", "read")
+}
+
 func (ah *AuthHandler) initialize(ctx context.Context) error {
 	_, err := ah.db.ExecContext(ctx, conversions.RiskilyAssumeTrustedSQL(`CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, password TEXT, privileges TEXT)`))
 	if err != nil {
@@ -99,14 +103,6 @@ func (ah *AuthHandler) initialize(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func (ah *AuthHandler) hasPrivilege(r *http.Request, priv string) bool {
-	u, err := ah.getUser(r)
-	if err != nil {
-		return false
-	}
-	return u.Can(priv)
 }
 
 func (ah *AuthHandler) getUser(r *http.Request) (*user, error) {
@@ -151,6 +147,7 @@ func (ah *AuthHandler) login(w http.ResponseWriter, id int) {
 	// BUT PLEASE, PLEASE, PLEASE never rely on client-provided
 	// data to perform auth checks unless it's signed and you validated
 	// the sgnature.
+
 	http.SetCookie(w, &http.Cookie{
 		Name:  "userid",
 		Value: strconv.Itoa(id),
@@ -162,6 +159,7 @@ func Auth(ctx context.Context) *AuthHandler {
 	sm := http.NewServeMux()
 	db := must(sql.Open("sqlite", "./users.db"))
 	ah := &AuthHandler{db, sm}
+	ctx = ah.withSuperUser(ctx)
 	if err := ah.initialize(ctx); err != nil {
 		log.Fatalf("Cannot initialize auth: %v", err)
 	}
