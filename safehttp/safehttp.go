@@ -1,6 +1,9 @@
 package safehttp
 
-import "net/http"
+import (
+	"log"
+	"net/http"
+)
 
 type Wrapper struct {
 	w http.ResponseWriter
@@ -28,5 +31,29 @@ func (w *Wrapper) Finalize() {
 }
 
 func (w *Wrapper) CheckSafe() bool {
+	requiredHeaders := []string{"Content-Security-Policy"}
+
+	requiredContent := make(map[string]string, 0)
+	requiredContent["Content-Security-Policy"] = "script-src 'none'"
+
+	for _, h := range requiredHeaders {
+		result := w.Header().Get(h)
+		if result == "" {
+			log.Printf("Response if missing required header: '%s'", h)
+			return false
+		}
+
+		required, ok := requiredContent[h]
+		if !ok {
+			// No required content
+			continue
+		}
+
+		if result != required {
+			log.Printf("Required header content for header: '%s': '%s', Found: '%s'", h, required, result)
+			return false
+		}
+
+	}
 	return true
 }
