@@ -90,8 +90,7 @@ func (ah *AuthHandler) createDefault(ctx context.Context) error {
 }
 
 func (ah *AuthHandler) initialize(ctx context.Context) error {
-	_, err := ah.db.ExecContext(ctx, conversions.RiskilyAssumeTrustedSQL(`
-		CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, password TEXT, privileges TEXT)`))
+	_, err := ah.db.ExecContext(ctx, conversions.RiskilyAssumeTrustedSQL(`CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, password TEXT, privileges TEXT)`))
 	if err != nil {
 		return err
 	}
