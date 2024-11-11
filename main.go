@@ -8,7 +8,22 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 
 	"github.com/empijei/def-prog-exercises/app"
+	"github.com/empijei/def-prog-exercises/safehttp"
 )
+
+func safeHttpMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		wr := safehttp.New(w, r)
+
+		defer wr.Finalize()
+
+		if !wr.CheckSafe() {
+			return
+		}
+
+		next.ServeHTTP(&wr, r)
+	})
+}
 
 func main() {
 	ctx := context.Background()
