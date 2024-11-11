@@ -30,6 +30,7 @@ func main() {
 	auth := app.Auth(ctx)
 
 	sm := http.NewServeMux()
+	sm.Handle("/", safeHttpMiddleware)
 	sm.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if auth.IsLogged(r) {
 			http.Redirect(w, r, "/notes/", http.StatusFound)
